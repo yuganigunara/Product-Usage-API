@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>TMF767 Product Usage</title>
+<style>
+  body { font-family: Arial, sans-serif; background: #f4f4f4; padding: 20px; }
+  .container { background: white; padding: 20px; border-radius: 10px; max-width: 600px; margin: auto; }
+  input, textarea { width: 100%; padding: 10px; margin-top: 5px; box-sizing: border-box; }
+  button { padding: 10px 20px; margin-top: 10px; background: #4CAF50; color: white; border: none; cursor: pointer; }
+  button:hover { background: #45a049; }
+  ul { list-style-type: none; padding-left: 0; }
+  li { padding: 5px 0; border-bottom: 1px solid #ddd; }
+  hr { margin: 30px 0; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h2>Product Usage Entry</h2>
+  <form id="usageForm">
+    <input type="text" id="usageType" placeholder="Usage Type (e.g., VOICE)" required /><br />
+    <input type="text" id="status" placeholder="Status (e.g., billed)" required /><br />
+    <textarea id="characteristics" placeholder='{"volume": "1GB", "duration": "60min"}'></textarea><br />
+    <button type="submit">Submit</button>
+  </form>
+
+  <h3>Submitted Product Usage</h3>
+  <ul id="usageList"></ul>
+</div>
+
+<hr />
+
+<div class="container">
+  <h2>Test API POST (send sample product usage)</h2>
+  <button id="testSendBtn">Send Test Usage</button>
+  <pre id="testResponse" style="background:#eee; padding:10px; margin-top:10px; white-space: pre-wrap;"></pre>
+</div>
+
+<script>
+async function loadUsages() {
+  try {
+    const response = await fetch('productUsage.php');
+    if (!response.ok) throw new Error('Failed to fetch usage data');
+    const data = await response.json();
+
+    const usageList = document.getElementById('usageList');
+    usageList.innerHTML = '';
+
+    if (!data.length) {
+      usageList.innerHTML = '<li>No product usage entries found.</li>';
+      return;
+    }
+
+    data.forEach(item => {
+      const li = document.createElement('li');
+      li.innerHTML = `<b>ID ${item.id}:</b> ${item.usageDate} - ${item.usageType} [${item.status}]`;
+      usageList.appendChild(li);
+    });
+  } catch (err) {
+    document.getElementById('usageList').innerHTML = `<li>⚠️ Error loading data: ${err.message}</li>`;
+  }
+}
+
+document.getElementById('usageForm').addEventListener('submit', async function (e) {
+  e.preventDefault();
+
+  const usageType = document.getElementById('usageType').value.trim();
+  const status = document.getElementById('status').value.trim();
+  const characteristicsText = document.getElementById('characteristics').value.trim();
+
+  let characteristics = {};
+  if (characteristicsText) {
+    try {
+      characteristics = JSON.parse(characteristicsText);
+    } catch (error) {
+      alert("⚠️ Characteristics must be valid JSON!");
+      return;
+    }
+  }
+
+  const data = {
+    usageType,
+    status,
+    usageDate: new Date().toISOString(),
+    characteristics
+  };
+
+  try {
+    const response = await fetch('productUsage.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || 'Unknown error');
+    }
+
+    await loadUsages();
+    this.reset();
+  } catch (err) {
+    alert("⚠️ Failed to submit usage: " + err.message);
+  }
+});
+
+document.getElementById('testSendBtn').addEventListener('click', async () => {
+  const testData = {
+    id: "5130d5131a23",
+    usageDate: "2024-08-25T12:19:14Z",
+    status: "billed",
+    usageType: "VOICE",
+    usageSpecification: {
+      id: "af59-b504c742900e"
+    },
+    usageCharacteristic: [
+      { name: "originatingCountryCode", value: "43", valueType: "string" },
+      { name: "destinationCountryCode", value: "49", valueType: "string" },
+      { name: "duration", value: "20", valueType: "string" }
+    ]
+  };
+
+  try {
+    const res = await fetch('productUsage.php?endpoint=productUsage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(testData)
+    });
+
+    const json = await res.json();
+    document.getElementById('testResponse').textContent = JSON.stringify(json, null, 2);
+  } catch (error) {
+    document.getElementById('testResponse').textContent = "⚠️ Error: " + error.message;
+  }
+});
+
+window.onload = loadUsages;
+</script>
+</body>
+</html>
+
+
+
